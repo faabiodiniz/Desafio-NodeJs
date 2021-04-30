@@ -10,6 +10,8 @@ var fs = require('fs');
 
 let headers = [];
 let output = [];
+var temporaryEid;
+var temporaryFullname;
 
 obj.from.path('input.csv').to.array(function (data) {
 
@@ -18,7 +20,7 @@ obj.from.path('input.csv').to.array(function (data) {
         headers.push(data[0][i]);
     }
 
-    let newRecord = {};
+    let newData = {};
 
     for (let i = 1; i < data.length; i++) {
 
@@ -31,28 +33,46 @@ obj.from.path('input.csv').to.array(function (data) {
                 case "group":
                     if (data[i][j] != "") {
                         let groups = Array.from(data[i][j].split(/[\t/,]+/));
-
+                        
                         groups = groups.map(Function.prototype.call, String.prototype.trim);
 
-                        if (newRecord["groups"] == null) {
-                            newRecord["groups"] = groups;
+                        if (newData["groups"] == null) {
+                            newData["groups"] = groups;
                         } else {
-                            newRecord["groups"] = newRecord["groups"].concat(groups);
+                            newData["groups"] = lodash.uniq(newData["groups"].concat(groups));
+                            
                         }
                     }
                     break;
 
                 case "eid":
-                    newRecord["eid"] = data[i][j];
+                    let eid = data[i][j];
+                    if(newData['eid'] == null){
+                        newData['eid'] = data[i][j]
+                    }
+                    else if(newData['eid'] != data[i][j]){
+                        console.log('Entrou no eid')
+                        temporaryFullname = newData['fullname'];
+                        
+                        output.push(newData)
+                        newData = {}
+                        newData['fullname'] = temporaryFullname
+                        newData['eid'] = data[i][j]
+                    }else{
+                        newData['eid'] = data[i][j]
+                    }
+                    
                     break;
 
                 case "fullname":
-                    if (newRecord["fullname"] == null) {
-                        newRecord["fullname"] = data[i][j];
-                    } else if (newRecord["fullname"] != data[i][j]) {
-                        output.push(newRecord);
-                        newRecord = {};
-                        newRecord["fullname"] = data[i][j];
+
+                    if (newData["fullname"] == null) {
+                        newData["fullname"] = data[i][j];
+                    }else if(newData['fullname'] != data[i][j] ){
+                        output.push(newData);
+                        newData = {};
+                        newData["fullname"] = data[i][j];
+                        temporaryFullname = newData['fullname']
                     }
                     break;
 
@@ -60,8 +80,8 @@ obj.from.path('input.csv').to.array(function (data) {
                     if (data[i][j] === "1") {
                         invisible = true;
                     }
-                    if (newRecord["invisible"] == null || invisible == true) {
-                        newRecord["invisible"] = invisible;
+                    if (newData["invisible"] == null || invisible == true) {
+                        newData["invisible"] = invisible;
                     }
                     break;
 
@@ -70,8 +90,8 @@ obj.from.path('input.csv').to.array(function (data) {
                         seeAll = true;
                     }
 
-                    if (newRecord["see_all"] == null || seeAll == true) {
-                        newRecord["see_all"] = seeAll;
+                    if (newData["see_all"] == null || seeAll == true) {
+                        newData["see_all"] = seeAll;
                     }
                     break;
 
@@ -85,10 +105,7 @@ obj.from.path('input.csv').to.array(function (data) {
                         }
 
                         if (titleParsed[0] == "email") {
-                            let emailParsed = lodash.split(data[i][j], ('/'));
-                            emailParsed = lodash.split(emailParsed, ' ')
-                            console.log(emailParsed)
-                            //emailParsed = lodash.split(emailParsed, ' ')
+                            let emailParsed = lodash.split(data[i][j], (/[\s/,]+/));
                             for (let k = 0; k < emailParsed.length; k++) {
                                 
                                 if (emailValidator.validate(emailParsed[k])) {
@@ -128,7 +145,7 @@ obj.from.path('input.csv').to.array(function (data) {
         }
 
         if (i == data.length - 1) {
-            output.push(newRecord);
+            output.push(newData);
         }
     }
 
@@ -141,19 +158,19 @@ obj.from.path('input.csv').to.array(function (data) {
 
     //Função para adicionar novos dados
     function record(key, address) {
-        if (newRecord[key] == null) {
-            newRecord[key] = [address];
+        if (newData[key] == null) {
+            newData[key] = [address];
         } else {
-            newRecord[key].push(address);
+            newData[key].push(address);
         }
     }
 
     //Função para verificar se já tem adicionado
     function verifyAddress(key, newAddress, tags) {
-        if (newRecord[key] != null) {
-            for (let l = 0; l < newRecord[key].length; l++) {
-                if (newRecord[key][l].address === newAddress) {
-                    newRecord[key][l]["tags"] = newRecord["addresses"][l]["tags"].concat(tags);
+        if (newData[key] != null) {
+            for (let l = 0; l < newData[key].length; l++) {
+                if (newData[key][l].address === newAddress) {
+                    newData[key][l]["tags"] = newData["addresses"][l]["tags"].concat(tags);
                     return true;
                 }
             }
